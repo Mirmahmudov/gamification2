@@ -1,67 +1,138 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { setCurrentUser } from '../utils/auth';
+import { getCurrentUser, setCurrentUser } from '../utils/auth';
+import {
+  HiOutlineUser,
+  HiOutlineLockClosed,
+  HiOutlineEye,
+  HiOutlineEyeSlash,
+} from 'react-icons/hi2';
+import { FiLogIn } from 'react-icons/fi';
 
 const Login = () => {
   const navigate = useNavigate();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
-  const demoUsers = [
-    { id: 1, username: 'student1', password: '123', role: 'student', name: 'USER 1', avatar: '' },
-    { id: 2, username: 'teacher1', password: '123', role: 'teacher', name: 'USER 2', avatar: '' },
-    { id: 3, username: 'admin1', password: '123', role: 'admin', name: 'USER 3', avatar: '' },
-    { id: 4, username: 'owner1', password: '123', role: 'owner', name: 'USER 4', avatar: '' },
-  ];
+  useEffect(() => {
+    const existing = getCurrentUser();
+    if (existing) {
+      navigate(`/${existing.role}`);
+    }
+  }, [navigate]);
 
-  const handleLogin = (user) => {
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setError('');
+
+    const trimmedLogin = username.trim().toLowerCase();
+    const trimmedPassword = password.trim().toLowerCase();
+
+    const credentials = {
+      admin: { role: 'admin', displayName: 'Admin', id: 1 },
+      teacher: { role: 'teacher', displayName: 'Ustoz', id: 2 },
+      student: { role: 'student', displayName: 'Student', id: 3 },
+      ega: { role: 'owner', displayName: 'Ega', id: 4 },
+    };
+
+    const match = credentials[trimmedLogin];
+
+    if (!match || trimmedPassword !== trimmedLogin) {
+      setError("Login yoki parol noto'g'ri. Iltimos, qayta urinib ko'ring.");
+      return;
+    }
+
+    const user = {
+      id: match.id,
+      username: trimmedLogin,
+      name: match.displayName,
+      role: match.role,
+      avatar: '',
+    };
+
     setCurrentUser(user);
     navigate(`/${user.role}`);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center  from-blue-500 via-purple-500 to-pink-500 p-4">
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-10">
-          {/* Logo */}
-          <div className="flex justify-center mb-8">
-            <div className="flex items-center gap-3">
-              <img src="/imgs/logo.svg" alt="" className="w-[130px] h-10" />
+    <div className="min-h-screen  flex items-center justify-center px-4 py-6">
+      <div className="w-full max-w-md mx-auto">
+        <div className="relative">
+          <div className="absolute -inset-1 rounded-3xl bg-black/10 blur-2xl" />
+          <div className="relative bg-white rounded-3xl shadow-2xl border border-gray-100 p-6 md:p-8">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
+                  Tizimga kirish
+                </h2>
+                <p className="text-gray-500 text-sm md:text-base mt-1">
+                  Login va parolni kiriting. 
+                </p>
+              </div>
+              <div className=" inline-flex items-center gap-2 px-3 py-1.5 rounded-full ">
+                <img src="/imgs/logo.svg" alt="CODIAL" className="h-6" />
+              </div>
             </div>
-          </div>
 
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-900 text-center mb-2">
-            Tizimga kirish
-          </h2>
-          <p className="text-gray-500 text-center mb-8">
-            Rolni tanlang
-          </p>
-
-          {/* User Buttons */}
-          <div className="space-y-3">
-            {demoUsers.map((user) => (
-              <button
-                key={user.id}
-                onClick={() => handleLogin(user)}
-                className="w-full flex items-center gap-4 p-4 bg-gradient-to-r from-gray-50 to-gray-100 hover:from-blue-50 hover:to-purple-50 border-2 border-gray-200 hover:border-blue-300 rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-105 group"
-              >
-               
-                <div className="flex-1 text-left">
-                  <div className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                    {user.name}
-                  </div>
-                  <div className="text-sm text-gray-500 capitalize">
-                    {user.role === 'student' && 'O\'quvchi'}
-                    {user.role === 'teacher' && 'Ustoz'}
-                    {user.role === 'admin' && 'Admin'}
-                    {user.role === 'owner' && 'Ega'}
-                  </div>
+       
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">Login</label>
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition">
+                  <HiOutlineUser className="text-gray-400 text-lg" />
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="admin, teacher, student, ega"
+                    className="w-full bg-transparent outline-none text-sm text-gray-900 placeholder:text-gray-400"
+                  />
                 </div>
-                <svg className="w-6 h-6 text-gray-400 group-hover:text-blue-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </button>
-            ))}
-          </div>
+              </div>
 
-          
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-gray-700">Parol</label>
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gray-50 border border-gray-200 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 transition">
+                  <HiOutlineLockClosed className="text-gray-400 text-lg" />
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Parolni kiriting"
+                    className="w-full bg-transparent outline-none text-sm text-gray-900 placeholder:text-gray-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="text-gray-400 hover:text-gray-600 transition"
+                    aria-label={showPassword ? 'Parolni yashirish' : 'Parolni ko‘rsatish'}
+                  >
+                    {showPassword ? (
+                      <HiOutlineEyeSlash className="text-lg" />
+                    ) : (
+                      <HiOutlineEye className="text-lg" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                className="mt-1 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#1D537C] text-white text-sm md:text-base font-semibold shadow-sm hover:shadow-md hover:-translate-y-0.5 transition"
+              >
+                <FiLogIn className="text-lg" />
+                <span>Kirish</span>
+              </button>
+            </form>
+          </div>
         </div>
       </div>
     </div>

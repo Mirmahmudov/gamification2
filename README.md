@@ -38,7 +38,7 @@ npm install
 npm run dev
 ```
 
-## 👥 Demo Foydalanuvchilar
+## Foydalanuvchilar
 
 Login sahifasida quyidagi foydalanuvchilardan birini tanlang:
 
@@ -49,7 +49,7 @@ Login sahifasida quyidagi foydalanuvchilardan birini tanlang:
 | Bobur Rahimov | Admin | 👨‍💼 |
 | Sardor Toshmatov | Owner | 👔 |
 
-## 📱 Responsive Dizayn
+## Responsive Dizayn
 
 ### Desktop (> 1024px)
 - To'liq sidebar navigation
@@ -61,7 +61,7 @@ Login sahifasida quyidagi foydalanuvchilardan birini tanlang:
 - Responsive grid layouts
 
 ### Mobile (< 768px)
-- Hamburger menu
+- menu
 - Bottom navigation (4 ta asosiy sahifa)
 - Touch-friendly interface
 
@@ -192,4 +192,4 @@ MIT
 
 ## 👨‍💻 Developer
 
-Built with ❤️ by CODIAL Team
+Built with ❤️ by Asadbek Mirmahmudov and CODIAL team

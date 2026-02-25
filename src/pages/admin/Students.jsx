@@ -5,6 +5,8 @@ import {
   HiOutlinePencil,
   HiOutlineTrash,
   HiOutlineTrophy,
+  HiOutlineUserPlus,
+  HiOutlineXMark,
 } from 'react-icons/hi2';
 
 const initialStudents = [
@@ -22,9 +24,46 @@ const initialStudents = [
   { id: 12, name: 'Otabek Salimov', email: 'otabek@codial.uz', group: 'Frontend 28', coins: 3120, rank: '#2' },
 ];
 
+const Modal = ({ open, title, onClose, children, maxWidth = 'max-w-2xl' }) => {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50">
+      <button
+        aria-label="Close modal overlay"
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
+      <div className={`relative mx-auto mt-10 w-[94%] ${maxWidth}`}>
+        <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
+          <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="font-semibold text-gray-900 text-sm md:text-base">{title}</h3>
+            <button
+              onClick={onClose}
+              className="w-9 h-9 rounded-xl hover:bg-gray-50 border border-transparent hover:border-gray-100 transition flex items-center justify-center text-gray-500"
+              aria-label="Close"
+            >
+              <HiOutlineXMark className="w-5 h-5" />
+            </button>
+          </div>
+          <div className="p-5 md:p-6 max-h-[75vh] overflow-y-auto">{children}</div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AdminStudents = () => {
-  const [students] = useState(initialStudents);
+  const [students, setStudents] = useState(initialStudents);
   const [query, setQuery] = useState('');
+  const [studentModalOpen, setStudentModalOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState(null);
+  const [studentForm, setStudentForm] = useState({
+    name: '',
+    email: '',
+    group: '',
+    password: '',
+  });
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -33,6 +72,70 @@ const AdminStudents = () => {
       `${s.name} ${s.email} ${s.group}`.toLowerCase().includes(q),
     );
   }, [students, query]);
+
+  const openAddStudent = () => {
+    setEditingStudent(null);
+    setStudentForm({
+      name: '',
+      email: '',
+      group: '',
+      password: '',
+    });
+    setStudentModalOpen(true);
+  };
+
+  const openEditStudent = (student) => {
+    setEditingStudent(student);
+    setStudentForm({
+      name: student.name,
+      email: student.email,
+      group: student.group,
+      password: '',
+    });
+    setStudentModalOpen(true);
+  };
+
+  const closeStudentModal = () => {
+    setStudentModalOpen(false);
+  };
+
+  const handleStudentFormChange = (e) => {
+    const { name, value } = e.target;
+    setStudentForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSaveStudent = (e) => {
+    e.preventDefault();
+
+    if (editingStudent) {
+      setStudents((prev) =>
+        prev.map((s) =>
+          s.id === editingStudent.id
+            ? { ...s, name: studentForm.name, email: studentForm.email, group: studentForm.group }
+            : s,
+        ),
+      );
+    } else {
+      const nextId = Math.max(...students.map((s) => s.id)) + 1;
+      setStudents((prev) => [
+        ...prev,
+        {
+          id: nextId,
+          name: studentForm.name,
+          email: studentForm.email,
+          group: studentForm.group,
+          coins: 0,
+          rank: '#-',
+        },
+      ]);
+    }
+
+    setStudentModalOpen(false);
+  };
+
+  const handleDeleteStudent = (id) => {
+    setStudents((prev) => prev.filter((s) => s.id !== id));
+  };
 
   return (
     <div className="space-y-5 md:space-y-7">
@@ -45,8 +148,11 @@ const AdminStudents = () => {
             Barcha o‘quvchilar ro‘yxati va statistika
           </p>
         </div>
-        <button className="self-start md:self-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700 transition">
-          <span>＋</span>
+        <button
+          onClick={openAddStudent}
+          className="self-start md:self-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700 transition"
+        >
+          <HiOutlineUserPlus className="w-4 h-4" />
           <span>O‘quvchi qo‘shish</span>
         </button>
       </header>
@@ -121,10 +227,18 @@ const AdminStudents = () => {
                       <button className="w-9 h-9 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-green-600 flex items-center justify-center">
                         <HiOutlineEye className="w-4 h-4" />
                       </button>
-                      <button className="w-9 h-9 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-blue-600 flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={() => openEditStudent(s)}
+                        className="w-9 h-9 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-blue-600 flex items-center justify-center"
+                      >
                         <HiOutlinePencil className="w-4 h-4" />
                       </button>
-                      <button className="w-9 h-9 rounded-xl border border-gray-200 bg-white hover:bg-red-50 text-red-600 flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteStudent(s.id)}
+                        className="w-9 h-9 rounded-xl border border-gray-200 bg-white hover:bg-red-50 text-red-600 flex items-center justify-center"
+                      >
                         <HiOutlineTrash className="w-4 h-4" />
                       </button>
                     </div>
@@ -135,6 +249,95 @@ const AdminStudents = () => {
           </table>
         </div>
       </section>
+
+      {/* Add / edit student modal */}
+      <Modal
+        open={studentModalOpen}
+        onClose={closeStudentModal}
+        title={editingStudent ? "O‘quvchini tahrirlash" : "O‘quvchi qo‘shish"}
+        maxWidth="max-w-lg"
+      >
+        <form className="space-y-4" onSubmit={handleSaveStudent}>
+          <div className="space-y-1.5">
+            <label className="text-xs md:text-sm font-medium text-gray-700">
+              Ism familiya *
+            </label>
+            <input
+              type="text"
+              name="name"
+              value={studentForm.name}
+              onChange={handleStudentFormChange}
+              required
+              placeholder="Aziza Karimova"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs md:text-sm font-medium text-gray-700">
+              Login (email) *
+            </label>
+            <input
+              type="email"
+              name="email"
+              value={studentForm.email}
+              onChange={handleStudentFormChange}
+              required
+              placeholder="aziza@codial.uz"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs md:text-sm font-medium text-gray-700">
+              Parol *
+            </label>
+            <input
+              type="password"
+              name="password"
+              value={studentForm.password}
+              onChange={handleStudentFormChange}
+              required={!editingStudent}
+              placeholder="Parolni kiriting"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs md:text-sm font-medium text-gray-700">
+              Guruh *
+            </label>
+            <select
+              name="group"
+              value={studentForm.group}
+              onChange={handleStudentFormChange}
+              required
+              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Guruhni tanlang</option>
+              <option value="Backend 36">Backend 36</option>
+              <option value="Backend 42">Backend 42</option>
+              <option value="Frontend 28">Frontend 28</option>
+            </select>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={closeStudentModal}
+              className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              Bekor qilish
+            </button>
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm"
+            >
+              Saqlash
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };

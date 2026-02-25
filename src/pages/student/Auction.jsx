@@ -152,9 +152,6 @@ const StudentAuction = () => {
                       {item.price} <span className="text-sm align-middle">coin</span>
                     </div>
                   </div>
-                  <button className="px-3 py-1.5 rounded-full bg-blue-600 text-white text-xs md:text-sm font-medium hover:bg-blue-700 transition">
-                    Stavka qilish
-                  </button>
                 </div>
               </div>
             </article>

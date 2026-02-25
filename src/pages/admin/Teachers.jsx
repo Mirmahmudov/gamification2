@@ -1,4 +1,10 @@
 import { useMemo, useState } from 'react';
+import {
+  HiOutlineMagnifyingGlass,
+  HiOutlineUserPlus,
+  HiOutlinePencilSquare,
+  HiOutlineTrash,
+} from 'react-icons/hi2';
 
 const initialTeachers = [
   { id: 1, name: 'Otabek Tursunov', email: 'otabek@codial.uz', course: 'Backend', groups: 2, students: 10 },
@@ -66,7 +72,7 @@ const AdminTeachers = () => {
         </div>
 
         <button className="self-start md:self-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700 transition">
-          <span>＋</span>
+          <HiOutlineUserPlus className="w-4 h-4" />
           <span>Ustoz qo‘shish</span>
         </button>
       </header>
@@ -74,7 +80,9 @@ const AdminTeachers = () => {
       {/* Search */}
       <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4">
         <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-gray-50 border border-gray-100">
-          <span className="text-gray-400 text-lg">🔍</span>
+          <span className="text-gray-400 text-lg">
+            <HiOutlineMagnifyingGlass />
+          </span>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -129,14 +137,14 @@ const AdminTeachers = () => {
                         aria-label="Edit"
                         title="Tahrirlash"
                       >
-                        ✎
+                        <HiOutlinePencilSquare className="w-4 h-4" />
                       </button>
                       <button
                         className="w-9 h-9 rounded-xl border border-gray-200 bg-white hover:bg-red-50 transition text-red-600"
                         aria-label="Delete"
                         title="O‘chirish"
                       >
-                        🗑
+                        <HiOutlineTrash className="w-4 h-4" />
                       </button>
                     </div>
                   </td>

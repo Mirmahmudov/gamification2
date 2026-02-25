@@ -6,6 +6,13 @@ import {
   HiOutlineDevicePhoneMobile,
   HiOutlinePaintBrush,
   HiOutlineMegaphone,
+  HiOutlineBookOpen,
+  HiOutlineCheckCircle,
+  HiOutlineUserGroup,
+  HiOutlineUserCircle,
+  HiOutlineMagnifyingGlass,
+  HiOutlineEye,
+  HiOutlineXMark,
 } from 'react-icons/hi2';
 
 const initialCourses = [
@@ -83,7 +90,7 @@ function Modal({ open, title, onClose, children }) {
         onClick={onClose}
       />
       <div className="relative mx-auto mt-16 w-[92%] max-w-md">
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
             <h3 className="font-semibold text-gray-900">{title}</h3>
             <button
@@ -91,7 +98,7 @@ function Modal({ open, title, onClose, children }) {
               className="w-9 h-9 rounded-xl hover:bg-gray-50 border border-transparent hover:border-gray-100 transition flex items-center justify-center text-gray-500"
               aria-label="Close"
             >
-              ✕
+              <HiOutlineXMark className="w-5 h-5" />
             </button>
           </div>
           <div className="p-5">{children}</div>
@@ -143,13 +150,15 @@ const AdminCourses = () => {
       {/* Top stats */}
       <section className="grid gap-3 md:gap-4 md:grid-cols-4">
         {[
-          { label: 'Jami Kurslar', value: stats.total, icon: '📚' },
-          { label: 'Faol Kurslar', value: stats.active, icon: '✅' },
-          { label: 'O‘qituvchilar', value: stats.teachers, icon: '👨‍🏫' },
-          { label: 'O‘quvchilar', value: stats.students, icon: '🧑‍🎓' },
+          { label: 'Jami Kurslar', value: stats.total, icon: HiOutlineBookOpen, tone: 'bg-blue-50 text-blue-600' },
+          { label: 'Faol Kurslar', value: stats.active, icon: HiOutlineCheckCircle, tone: 'bg-emerald-50 text-emerald-600' },
+          { label: 'O‘qituvchilar', value: stats.teachers, icon: HiOutlineUserCircle, tone: 'bg-violet-50 text-violet-600' },
+          { label: 'O‘quvchilar', value: stats.students, icon: HiOutlineUserGroup, tone: 'bg-amber-50 text-amber-600' },
         ].map((s) => (
           <div key={s.label} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center text-lg">{s.icon}</div>
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-lg ${s.tone || 'bg-gray-50 text-gray-600'}`}>
+              <s.icon className="w-5 h-5" />
+            </div>
             <div>
               <p className="text-sm font-semibold text-gray-900">{s.value}</p>
               <p className="text-[11px] text-gray-500">{s.label}</p>
@@ -161,7 +170,9 @@ const AdminCourses = () => {
       {/* Search */}
       <section className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 md:p-4">
         <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-gray-50 border border-gray-100">
-          <span className="text-gray-400 text-lg">🔍</span>
+          <span className="text-gray-400 text-lg">
+            <HiOutlineMagnifyingGlass />
+          </span>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -220,7 +231,7 @@ const AdminCourses = () => {
                 onClick={() => handleOpen(c)}
                 className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2.5 text-sm font-semibold text-gray-800 hover:bg-gray-100 transition"
               >
-                <span>👁</span>
+                <HiOutlineEye className="w-4 h-4" />
                 <span>Ko‘rish</span>
               </button>
             </div>
