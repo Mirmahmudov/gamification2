@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCurrentUser, setCurrentUser } from '../utils/auth';
+import { getCurrentUser, setCurrentUser, setTokens } from '../utils/auth';
 import {
   HiOutlineUser,
   HiOutlineLockClosed,
@@ -8,6 +8,7 @@ import {
   HiOutlineEyeSlash,
 } from 'react-icons/hi2';
 import { FiLogIn } from 'react-icons/fi';
+import { loginRequest } from '../utils/api';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -15,6 +16,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const existing = getCurrentUser();
@@ -23,37 +25,56 @@ const Login = () => {
     }
   }, [navigate]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    const trimmedLogin = username.trim().toLowerCase();
-    const trimmedPassword = password.trim().toLowerCase();
+    try {
+      const trimmedLogin = username.trim();
+      const trimmedPassword = password.trim();
 
-    const credentials = {
-      admin: { role: 'admin', displayName: 'Admin', id: 1 },
-      teacher: { role: 'teacher', displayName: 'Ustoz', id: 2 },
-      student: { role: 'student', displayName: 'Student', id: 3 },
-      ega: { role: 'owner', displayName: 'Ega', id: 4 },
-    };
+      if (!trimmedLogin || !trimmedPassword) {
+        setError('Login va parolni to‘liq kiriting.');
+        setLoading(false);
+        return;
+      }
 
-    const match = credentials[trimmedLogin];
+      const data = await loginRequest({
+        username: trimmedLogin,
+        password: trimmedPassword,
+      });
 
-    if (!match || trimmedPassword !== trimmedLogin) {
-      setError("Login yoki parol noto'g'ri. Iltimos, qayta urinib ko'ring.");
-      return;
+      const apiRole = (data.role || '').toLowerCase();
+      let effectiveRole = apiRole;
+
+      if (!effectiveRole || effectiveRole === '') {
+        effectiveRole = 'owner';
+      } else if (effectiveRole === 'ega') {
+        effectiveRole = 'owner';
+      }
+
+      if (!['admin', 'teacher', 'student', 'owner'].includes(effectiveRole)) {
+        effectiveRole = 'student';
+      }
+
+      const user = {
+        username: trimmedLogin,
+        name: trimmedLogin,
+        role: effectiveRole,
+      };
+
+      setTokens({
+        access: data.access,
+        refresh: data.refresh,
+      });
+      setCurrentUser(user);
+      navigate(`/${effectiveRole}`);
+    } catch (err) {
+      setError(err.message || "Login amalga oshmadi. Iltimos, qayta urinib ko'ring.");
+    } finally {
+      setLoading(false);
     }
-
-    const user = {
-      id: match.id,
-      username: trimmedLogin,
-      name: match.displayName,
-      role: match.role,
-      avatar: '',
-    };
-
-    setCurrentUser(user);
-    navigate(`/${user.role}`);
   };
 
   return (
@@ -126,10 +147,13 @@ const Login = () => {
 
               <button
                 type="submit"
-                className="mt-1 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#1D537C] text-white text-sm md:text-base font-semibold shadow-sm hover:shadow-md hover:-translate-y-0.5 transition"
+                disabled={loading}
+                className={`mt-1 w-full inline-flex items-center justify-center gap-2 px-4 py-3 rounded-2xl bg-[#1D537C] text-white text-sm md:text-base font-semibold shadow-sm hover:shadow-md hover:-translate-y-0.5 transition ${
+                  loading ? 'opacity-70 cursor-not-allowed hover:-translate-y-0' : ''
+                }`}
               >
                 <FiLogIn className="text-lg" />
-                <span>Kirish</span>
+                <span>{loading ? 'Kirilmoqda...' : 'Kirish'}</span>
               </button>
             </form>
           </div>
