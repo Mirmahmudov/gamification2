@@ -1,5 +1,6 @@
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { logout, getCurrentUser } from '../../utils/auth';
+import { logout } from '../../utils/auth';
+import { useStudentData } from '../../contexts/StudentDataContext';
 import MobileBottomNav from '../MobileBottomNav';
 import {
   HiOutlineSquares2X2,
@@ -14,7 +15,7 @@ import {
 const StudentLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const user = getCurrentUser();
+  const { fullName, image, loading } = useStudentData();
 
   const handleLogout = () => {
     logout();
@@ -84,11 +85,17 @@ const StudentLayout = () => {
         {/* User Info & Logout */}
         <div className="px-4 py-4 border-t border-gray-100">
           <div className="flex items-center gap-3 mb-3 px-2">
-            <div className="w-11 h-11 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-full flex items-center justify-center text-2xl flex-shrink-0 shadow-sm">
-              😊
+            <div className="w-11 h-11 rounded-full flex-shrink-0 shadow-sm overflow-hidden bg-gradient-to-br from-yellow-400 to-yellow-500 flex items-center justify-center">
+              {image ? (
+                <img src={image} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-2xl">😊</span>
+              )}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-gray-900 text-[15px] truncate">Hasanali Turdialiyev</div>
+              <div className="font-semibold text-gray-900 text-[15px] truncate">
+              {loading ? '...' : fullName || 'Student'}
+            </div>
               <div className="text-xs text-gray-500 font-medium">Student</div>
             </div>
           </div>

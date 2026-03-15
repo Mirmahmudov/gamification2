@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   HiOutlineMagnifyingGlass,
   HiOutlineEye,
@@ -58,6 +59,7 @@ const AdminStudents = () => {
   const [query, setQuery] = useState('');
   const [studentModalOpen, setStudentModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
+  const navigate = useNavigate();
   const [studentForm, setStudentForm] = useState({
     name: '',
     email: '',
@@ -224,10 +226,13 @@ const AdminStudents = () => {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
-                      <button className="w-9 h-9 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-green-600 flex items-center justify-center">
-                        <HiOutlineEye className="w-4 h-4" />
-                      </button>
                       <button
+                        className="w-9 h-9 rounded-xl border border-gray-200 bg-white hover:bg-blue-50 hover:border-blue-200 text-blue-600 flex items-center justify-center transition"
+                        onClick={() => navigate(`students/${s.id}`, { state: { student: s } })}
+                        title="Batafsil ko'rish"
+                      >
+                        <HiOutlineEye className="w-4 h-4" />
+                      </button>                      <button
                         type="button"
                         onClick={() => openEditStudent(s)}
                         className="w-9 h-9 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-blue-600 flex items-center justify-center"

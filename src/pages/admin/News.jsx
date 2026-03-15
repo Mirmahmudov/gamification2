@@ -1,345 +1,313 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   HiOutlinePlusCircle,
   HiOutlineXMark,
   HiOutlinePencilSquare,
   HiOutlineTrash,
-  HiOutlineEyeSlash,
+  HiOutlineNewspaper,
+  HiOutlinePhoto,
 } from 'react-icons/hi2';
+import { getNewsRequest, createNewsRequest, updateNewsRequest, deleteNewsRequest } from '../../utils/api';
+import { getAccessToken, getRefreshToken, setAccessToken } from '../../utils/auth';
 
 const Modal = ({ open, title, onClose, children }) => {
   if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-50 flex items-start justify-center pt-12 px-4">
       <button
-        aria-label="Close modal overlay"
+        aria-label="Close"
         className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
         onClick={onClose}
       />
-      <div className="relative mx-auto mt-12 w-[92%] max-w-lg">
+      <div className="relative w-full max-w-lg z-10">
         <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900 text-sm md:text-base">{title}</h3>
+            <h3 className="font-semibold text-gray-900 text-base">{title}</h3>
             <button
               onClick={onClose}
-              className="w-9 h-9 rounded-xl hover:bg-gray-50 border border-transparent hover:border-gray-100 transition flex items-center justify-center text-gray-500"
-              aria-label="Close"
+              className="w-9 h-9 rounded-xl hover:bg-gray-100 flex items-center justify-center text-gray-500 transition"
             >
               <HiOutlineXMark className="w-5 h-5" />
             </button>
           </div>
-          <div className="p-5 md:p-6 max-h-[70vh] overflow-y-auto">{children}</div>
+          <div className="p-5 max-h-[70vh] overflow-y-auto">{children}</div>
         </div>
       </div>
     </div>
   );
 };
 
-const initialNewsItems = [
-  {
-    title: 'Fevral oyinging mega auksioni!',
-    badge: 'Muhim',
-    badgeColor: 'bg-orange-100 text-orange-700',
-    excerpt:
-      "Diqqat! Fevral oyinging eng katta auksioni 28-fevralda soat 15:00 da bo‘lib o‘tadi. MacBook Air M2, iPhone 15 Pro va boshqa ajoyib sovg‘alar coinlaringizni kutmoqda!",
-    author: 'Robiya Anvarova',
-    role: 'Admin',
-    date: '2026-02-25 14:30',
-    isImportant: true,
-  },
-  {
-    title: 'CODIAL platformasi ishga tushirildi!',
-    badge: 'Muhim',
-    badgeColor: 'bg-orange-100 text-orange-700',
-    excerpt:
-      'Hurmatli o‘quvchi va ustozlar! CODIAL gamifikatsiya platformasi ishga tushirildi. Endi darslaringiz yanada qiziqarli va samarali bo‘ladi.',
-    author: 'Muhammadmin Naziraliyev',
-    role: 'Ega',
-    date: '2026-02-15 11:00',
-    isImportant: true,
-  },
-];
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  const d = new Date(dateString);
+  return d.toLocaleDateString('uz-UZ', { year: 'numeric', month: '2-digit', day: '2-digit' });
+};
 
 const AdminNews = () => {
-  const [news, setNews] = useState(initialNewsItems);
+  const [news, setNews] = useState([]);
+  const [filteredNews, setFilteredNews] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingIndex, setEditingIndex] = useState(null);
-  const [form, setForm] = useState({
-    title: '',
-    body: '',
-    imageUrl: '',
-    isImportant: false,
-  });
+  const [editingItem, setEditingItem] = useState(null);
+  const [form, setForm] = useState({ title: '', description: '', image: null });
+  const [imagePreview, setImagePreview] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
 
-  const openModal = () => {
-    setEditingIndex(null);
-    setForm({
-      title: '',
-      body: '',
-      imageUrl: '',
-      isImportant: false,
-    });
+  const fetchNews = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getNewsRequest(getAccessToken, getRefreshToken, setAccessToken);
+      setNews(data);
+      setFilteredNews(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchNews(); }, []);
+
+  useEffect(() => {
+    const q = searchQuery.trim().toLowerCase();
+    setFilteredNews(
+      q ? news.filter(i => i.title.toLowerCase().includes(q) || i.description.toLowerCase().includes(q)) : news
+    );
+  }, [searchQuery, news]);
+
+  const openAddModal = () => {
+    setEditingItem(null);
+    setForm({ title: '', description: '', image: null });
+    setImagePreview(null);
+    setFormError('');
     setIsModalOpen(true);
   };
 
-  const openEditModal = (index) => {
-    const item = news[index];
-    setEditingIndex(index);
-    setForm({
-      title: item.title,
-      body: item.excerpt,
-      imageUrl: item.imageUrl || '',
-      isImportant: !!item.isImportant,
-    });
+  const openEditModal = (item) => {
+    setEditingItem(item);
+    setForm({ title: item.title, description: item.description, image: null });
+    setImagePreview(item.image || null);
+    setFormError('');
     setIsModalOpen(true);
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-  };
+  const closeModal = () => { setIsModalOpen(false); setFormError(''); };
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setForm((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
-  };
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-
-    const now = new Date();
-    const formattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(
-      2,
-      '0'
-    )}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(
-      2,
-      '0'
-    )}:${String(now.getMinutes()).padStart(2, '0')}`;
-
-    const badge = form.isImportant ? 'Muhim' : 'Yangilik';
-    const badgeColor = form.isImportant
-      ? 'bg-orange-100 text-orange-700'
-      : 'bg-sky-100 text-sky-700';
-
-    const newItem = {
-      title: form.title,
-      badge,
-      badgeColor,
-      excerpt: form.body,
-      author: 'Admin',
-      role: 'Admin',
-      date: formattedDate,
-      isImportant: form.isImportant,
-      imageUrl: form.imageUrl || '',
-    };
-
-    if (editingIndex === null) {
-      setNews((prev) => [newItem, ...prev]);
+    const { name, value, files } = e.target;
+    if (name === 'image' && files?.[0]) {
+      setForm(p => ({ ...p, image: files[0] }));
+      const reader = new FileReader();
+      reader.onloadend = () => setImagePreview(reader.result);
+      reader.readAsDataURL(files[0]);
     } else {
-      setNews((prev) => prev.map((n, idx) => (idx === editingIndex ? newItem : n)));
+      setForm(p => ({ ...p, [name]: value }));
     }
-
-    setIsModalOpen(false);
   };
 
-  const handleDelete = (index) => {
-    setNews((prev) => prev.filter((_, idx) => idx !== index));
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.title.trim() || !form.description.trim()) {
+      setFormError('Sarlavha va matn majburiy.');
+      return;
+    }
+    setSubmitting(true);
+    setFormError('');
+    try {
+      const fd = new FormData();
+      fd.append('title', form.title.trim());
+      fd.append('description', form.description.trim());
+      if (form.image) fd.append('image', form.image);
+
+      if (editingItem) {
+        await updateNewsRequest(editingItem.id, fd, getAccessToken, getRefreshToken, setAccessToken);
+      } else {
+        await createNewsRequest(fd, getAccessToken, getRefreshToken, setAccessToken);
+      }
+      await fetchNews();
+      closeModal();
+    } catch (err) {
+      setFormError(err.message);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const handleUnpin = (index) => {
-    setNews((prev) =>
-      prev.map((item, idx) =>
-        idx === index
-          ? {
-              ...item,
-              isImportant: false,
-              badge: 'Yangilik',
-              badgeColor: 'bg-sky-100 text-sky-700',
-            }
-          : item,
-      ),
-    );
+  const handleDelete = async (id) => {
+    if (!window.confirm('Yangilikni o\'chirishni tasdiqlaysizmi?')) return;
+    try {
+      await deleteNewsRequest(id, getAccessToken, getRefreshToken, setAccessToken);
+      await fetchNews();
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   return (
-    <div className="space-y-5 md:space-y-7">
+    <div className="space-y-5 md:space-y-6">
       {/* Header */}
       <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Yangiliklar</h1>
-          <p className="text-gray-500 text-sm md:text-base">
-            Platformadagi so‘nggi yangiliklar va e‘lonlarni boshqarish
-          </p>
+          <p className="text-gray-500 text-sm">Platformadagi yangiliklar va e'lonlarni boshqarish</p>
         </div>
         <button
-          type="button"
-          onClick={openModal}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700"
+          onClick={openAddModal}
+          className="self-start md:self-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition shadow-sm"
         >
-          <HiOutlinePlusCircle className="text-lg" />
-          <span>Yangilik qo‘shish</span>
+          <HiOutlinePlusCircle className="w-5 h-5" />
+          Yangilik qo'shish
         </button>
       </header>
 
       {/* Search */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-3 md:p-4">
-        <div className="flex items-center gap-2 px-2 py-1.5 rounded-xl bg-gray-50 border border-gray-100">
-          <span className="text-gray-400 text-lg">🔍</span>
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-3">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 border border-gray-200">
+          <span className="text-gray-400">🔍</span>
           <input
             type="text"
             placeholder="Yangiliklar qidirish..."
-            className="w-full bg-transparent text-sm md:text-base outline-none placeholder:text-gray-400 text-gray-900"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            className="w-full bg-transparent text-sm outline-none placeholder:text-gray-400"
           />
         </div>
       </div>
 
-      {/* News grid */}
-      <section className="grid gap-4 md:gap-5 lg:grid-cols-2">
-        {news.map((item, index) => (
-          <article
-            key={item.title + item.date}
-            className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-5 flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition"
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="space-y-1.5">
-                <h2 className="font-semibold text-gray-900 text-sm md:text-base lg:text-lg">
-                  {item.title}
-                </h2>
-                <p className="text-xs md:text-sm text-gray-600 line-clamp-3">{item.excerpt}</p>
-              </div>
-              <span
-                className={`text-[11px] md:text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${item.badgeColor}`}
-              >
-                {item.badge}
-              </span>
-            </div>
+      {/* States */}
+      {loading && (
+        <div className="flex justify-center py-12">
+          <div className="w-10 h-10 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin" />
+        </div>
+      )}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-center text-sm text-red-600">{error}</div>
+      )}
+      {!loading && !error && filteredNews.length === 0 && (
+        <div className="bg-gray-50 border border-gray-200 rounded-2xl p-10 text-center">
+          <HiOutlineNewspaper className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">{searchQuery ? 'Hech narsa topilmadi' : 'Yangiliklar yo\'q'}</p>
+        </div>
+      )}
 
-            <div className="flex flex-wrap items-center gap-3 pt-1 border-t border-gray-100 mt-1 pt-2.5">
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span className="text-gray-400">✍️</span>
-                <span>{item.author}</span>
-                <span className="px-1.5 py-0.5 rounded-full bg-sky-50 text-sky-600 text-[11px] font-medium">
-                  {item.role}
-                </span>
+      {/* News Grid */}
+      {!loading && !error && filteredNews.length > 0 && (
+        <section className="grid gap-4 lg:grid-cols-2">
+          {filteredNews.map(item => (
+            <article
+              key={item.id}
+              className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md hover:-translate-y-0.5 transition-all"
+            >
+              {item.image && (
+                <div className="w-full h-44 overflow-hidden bg-gray-100">
+                  <img src={item.image} alt={item.title} className="w-full h-full object-cover" />
+                </div>
+              )}
+              <div className="p-4 space-y-3">
+                <div>
+                  <h2 className="font-semibold text-gray-900 text-sm md:text-base mb-1">{item.title}</h2>
+                  <p className="text-xs text-gray-600 line-clamp-2">{item.description}</p>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                  <span className="text-xs text-gray-400">📅 {formatDate(item.created_at)}</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => openEditModal(item)}
+                      className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-blue-50 hover:border-blue-200 text-blue-600 flex items-center justify-center transition"
+                      aria-label="Tahrirlash"
+                    >
+                      <HiOutlinePencilSquare className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(item.id)}
+                      className="w-8 h-8 rounded-lg border border-gray-200 hover:bg-red-50 hover:border-red-200 text-red-500 flex items-center justify-center transition"
+                      aria-label="O'chirish"
+                    >
+                      <HiOutlineTrash className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-1 text-xs text-gray-400">
-                <span>📅</span>
-                <span>{item.date}</span>
-              </div>
-            </div>
-            <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-50">
-              <button
-                type="button"
-                onClick={() => handleUnpin(index)}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 text-orange-700 text-[11px] font-semibold hover:bg-orange-100"
-              >
-                <HiOutlineEyeSlash className="w-4 h-4" />
-                <span>Olib tashlash</span>
-              </button>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => openEditModal(index)}
-                  className="w-9 h-9 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 text-blue-600 flex items-center justify-center"
-                  aria-label="Tahrirlash"
-                >
-                  <HiOutlinePencilSquare className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDelete(index)}
-                  className="w-9 h-9 rounded-xl border border-gray-200 bg-white hover:bg-red-50 text-red-600 flex items-center justify-center"
-                  aria-label="O‘chirish"
-                >
-                  <HiOutlineTrash className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </article>
-        ))}
-      </section>
+            </article>
+          ))}
+        </section>
+      )}
 
+      {/* Modal */}
       <Modal
         open={isModalOpen}
         onClose={closeModal}
-        title={editingIndex === null ? 'Yangilik qo‘shish' : 'Yangilikni tahrirlash'}
+        title={editingItem ? 'Yangilikni tahrirlash' : 'Yangilik qo\'shish'}
       >
-        <form className="space-y-4" onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {formError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-600">{formError}</div>
+          )}
+
           <div className="space-y-1.5">
-            <label className="text-xs md:text-sm font-medium text-gray-700">
-              Sarlavha *
-            </label>
+            <label className="text-sm font-medium text-gray-700">Sarlavha *</label>
             <input
               type="text"
               name="title"
               value={form.title}
               onChange={handleChange}
               required
-              placeholder="Yangilik sarlavhasini kiriting"
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Yangilik sarlavhasi"
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs md:text-sm font-medium text-gray-700">Matn *</label>
+            <label className="text-sm font-medium text-gray-700">Matn *</label>
             <textarea
-              name="body"
-              value={form.body}
+              name="description"
+              value={form.description}
               onChange={handleChange}
               required
               rows={4}
-              placeholder="Yangilik matnini kiriting..."
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+              placeholder="Yangilik matni..."
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs md:text-sm font-medium text-gray-700">
-              Rasm URL (ixtiyoriy)
+            <label className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+              <HiOutlinePhoto className="w-4 h-4" />
+              Rasm {editingItem && '(ixtiyoriy)'}
             </label>
+            {imagePreview && (
+              <div className="w-full h-36 rounded-xl overflow-hidden bg-gray-100 mb-2">
+                <img src={imagePreview} alt="preview" className="w-full h-full object-cover" />
+              </div>
+            )}
             <input
-              type="url"
-              name="imageUrl"
-              value={form.imageUrl}
+              type="file"
+              name="image"
+              accept="image/*"
               onChange={handleChange}
-              placeholder="https://example.com/image.jpg"
-              className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
             />
           </div>
 
-          <div className="flex items-start gap-2 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5">
-            <input
-              id="isImportant"
-              type="checkbox"
-              name="isImportant"
-              checked={form.isImportant}
-              onChange={handleChange}
-              className="mt-0.5 h-4 w-4 rounded border-amber-300 text-amber-600 focus:ring-amber-500"
-            />
-            <label
-              htmlFor="isImportant"
-              className="text-xs md:text-sm text-amber-800 cursor-pointer"
-            >
-              Muhim yangilik sifatida belgilash (tepada ko‘rinadi)
-            </label>
-          </div>
-
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
               onClick={closeModal}
-              className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              disabled={submitting}
+              className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition"
             >
               Bekor qilish
             </button>
             <button
               type="submit"
-              className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm"
+              disabled={submitting}
+              className="px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition shadow-sm"
             >
-              {editingIndex === null ? 'Qo‘shish' : 'Saqlash'}
+              {submitting ? 'Saqlanmoqda...' : editingItem ? 'Saqlash' : 'Qo\'shish'}
             </button>
           </div>
         </form>

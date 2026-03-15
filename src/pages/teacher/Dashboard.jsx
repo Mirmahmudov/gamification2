@@ -1,3 +1,12 @@
+import {
+  HiOutlineUserGroup,
+  HiOutlineUsers,
+  HiOutlineSparkles,
+  HiOutlineCurrencyDollar,
+  HiOutlineCalendarDays,
+  HiOutlineArrowTrendingUp,
+} from 'react-icons/hi2';
+
 const groups = [
   {
     name: 'Backend 36',
@@ -43,18 +52,46 @@ const TeacherDashboard = () => {
       {/* Top stats */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         {[
-          { label: 'Guruhlar', value: totalGroups },
-          { label: 'O‘quvchilar', value: totalStudents },
-          { label: 'O‘rtacha coin', value: avgCoins },
-          { label: 'Jami coinlar', value: totalCoins },
+          {
+            label: 'Guruhlar',
+            value: totalGroups,
+            icon: HiOutlineUserGroup,
+            tone: 'from-sky-50 to-sky-100 text-sky-700',
+          },
+          {
+            label: 'O‘quvchilar',
+            value: totalStudents,
+            icon: HiOutlineUsers,
+            tone: 'from-emerald-50 to-emerald-100 text-emerald-700',
+          },
+          {
+            label: 'O‘rtacha coin',
+            value: avgCoins,
+            icon: HiOutlineArrowTrendingUp,
+            tone: 'from-amber-50 to-amber-100 text-amber-800',
+          },
+          {
+            label: 'Jami coinlar',
+            value: totalCoins,
+            icon: HiOutlineCurrencyDollar,
+            tone: 'from-violet-50 to-violet-100 text-violet-800',
+          },
         ].map((s) => (
           <div
             key={s.label}
-            className="rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-3 bg-white"
+            className="rounded-2xl border border-gray-100 shadow-sm p-4 bg-white overflow-hidden relative"
           >
-            <div>
-              <p className="text-sm font-semibold text-gray-900">{s.value}</p>
-              <p className="text-[11px] text-gray-500">{s.label}</p>
+            <div className={`absolute inset-0 bg-gradient-to-br ${s.tone} opacity-60`} />
+            <div className="relative flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-white/80 border border-white/70 flex items-center justify-center">
+                <s.icon className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="text-xl md:text-2xl font-extrabold text-gray-900 tabular-nums">
+                  {Number(s.value).toLocaleString()}
+                </p>
+                <p className="text-[11px] md:text-xs text-gray-600 font-semibold">{s.label}</p>
+              </div>
             </div>
           </div>
         ))}
@@ -74,7 +111,10 @@ const TeacherDashboard = () => {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-base font-semibold text-gray-900">{g.name}</p>
-                  <p className="text-xs text-gray-500 mt-1">📅 {g.schedule}</p>
+                  <p className="text-xs text-gray-500 mt-1 inline-flex items-center gap-1">
+                    <HiOutlineCalendarDays className="w-4 h-4" />
+                    <span>{g.schedule}</span>
+                  </p>
                 </div>
                 <span className="text-xs font-semibold bg-blue-50 text-blue-600 px-3 py-1 rounded-full">
                   {g.students} ta
@@ -103,8 +143,10 @@ const TeacherDashboard = () => {
                     </span>
                   ))}
                 </div>
-                <button className="text-blue-600 font-medium hover:text-blue-700 transition">
-                  Ko‘rish →
+                <button className="text-blue-600 font-semibold hover:text-blue-700 transition inline-flex items-center gap-1">
+                  <HiOutlineSparkles className="w-4 h-4" />
+                  <span>Ko‘rish</span>
+                  <span>→</span>
                 </button>
               </div>
             </div>

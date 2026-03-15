@@ -9,9 +9,13 @@ import OwnerLayout from '../components/layouts/OwnerLayout';
 
 // Protected Route
 import ProtectedRoute from '../components/ProtectedRoute';
+import { StudentDataProvider } from '../contexts/StudentDataContext';
 
 // Login
 import Login from '../pages/Login';
+
+// Shared
+import StudentDetail from '../pages/shared/StudentDetail';
 
 // Student Pages
 import StudentDashboard from '../pages/student/Dashboard';
@@ -76,13 +80,16 @@ const AppRoutes = () => {
       {/* Student Routes */}
       <Route path="/student" element={
         <ProtectedRoute requiredRole="student">
-          <StudentLayout />
+          <StudentDataProvider>
+            <StudentLayout />
+          </StudentDataProvider>
         </ProtectedRoute>
       }>
         <Route index element={<StudentDashboard />} />
         <Route path="news" element={<StudentNews />} />
         <Route path="profile" element={<StudentProfile />} />
         <Route path="rating" element={<StudentRating />} />
+        <Route path="rating/:id" element={<StudentDetail />} />
         <Route path="my-books" element={<StudentMyBooks />} />
         <Route path="auction" element={<StudentAuction />} />
         <Route path="assessment" element={<StudentAssessment />} />
@@ -101,6 +108,7 @@ const AppRoutes = () => {
         <Route path="auction" element={<TeacherAuction />} />
         <Route path="assessment" element={<TeacherAssessment />} />
         <Route path="rules" element={<TeacherAssessmentRules />} />
+        <Route path="students/:id" element={<StudentDetail />} />
         <Route path="modals" element={<TeacherModals />} />
       </Route>
 
@@ -115,6 +123,7 @@ const AppRoutes = () => {
         <Route path="courses" element={<AdminCourses />} />
         <Route path="groups" element={<AdminGroups />} />
         <Route path="students" element={<AdminStudents />} />
+        <Route path="students/:id" element={<StudentDetail />} />
         <Route path="teachers" element={<AdminTeachers />} />
         <Route path="auction" element={<AdminAuction />} />
         <Route path="modals" element={<AdminModals />} />
@@ -133,6 +142,7 @@ const AppRoutes = () => {
         <Route path="teachers" element={<OwnerTeachers />} />
         <Route path="groups" element={<OwnerGroups />} />
         <Route path="students" element={<OwnerStudents />} />
+        <Route path="students/:id" element={<StudentDetail />} />
         <Route path="auction" element={<OwnerAuction />} />
         <Route path="assessment" element={<OwnerAssessment />} />
         <Route path="modals" element={<OwnerModals />} />

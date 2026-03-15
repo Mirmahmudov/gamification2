@@ -1,11 +1,18 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { FiGrid, FiList } from 'react-icons/fi';
+import {
+  createBookRequest,
+  deleteBookRequest,
+  getBooksRequest,
+  updateBookRequest,
+} from '../../utils/api';
+import { getAccessToken, getRefreshToken, setAccessToken } from '../../utils/auth';
+import { useStudentData } from '../../contexts/StudentDataContext';
 import {
   HiOutlinePencilSquare,
   HiOutlineTrash,
-  HiOutlinePlusCircle,
   HiOutlineXMark,
 } from 'react-icons/hi2';
-import { FiGrid, FiList } from 'react-icons/fi';
 
 const Modal = ({ open, title, onClose, children }) => {
   if (!open) return null;
@@ -36,99 +43,140 @@ const Modal = ({ open, title, onClose, children }) => {
   );
 };
 
-const initialBooks = [
-  {
-    title: 'Inson qidiruvi',
-    author: 'Viktor Frankl',
-    status: 'Tugatdim',
-    statusColor: 'bg-emerald-50 text-emerald-600',
-    start: '2026-01-05',
-    end: '2026-01-25',
-    cover:
-      'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&auto=format&fit=crop&q=80',
-    summary:
-      "Yozuvchi o'zining konslager tajribasidan kelib chiqqan holda, insonning ma'noga bo'lgan ehtiyojini va hayotdagi maqsadini topishning muhimligini tushuntiradi.",
-  },
-  {
-    title: 'Atom odatlar',
-    author: 'James Clear',
-    status: 'Tugatdim',
-    statusColor: 'bg-emerald-50 text-emerald-600',
-    start: '2026-01-28',
-    end: '2026-02-08',
-    cover:
-      'https://images.unsplash.com/photo-1544937950-fa07a98d237f?w=400&auto=format&fit=crop&q=80',
-    summary:
-      "Kichik o'zgarishlar qanday qilib katta natijalarga olib kelishini tushuntiruvchi amaliy qo'llanma.",
-  },
-  {
-    title: 'Clean Code',
-    author: 'Robert C. Martin',
-    status: 'O‘qiyapman',
-    statusColor: 'bg-sky-50 text-sky-600',
-    start: '2026-02-09',
-    end: null,
-    cover:
-      'https://images.unsplash.com/photo-1528208079124-0f0a448f7c39?w=400&auto=format&fit=crop&q=80',
-    summary:
-      "Dasturchilar uchun toza, o'qilishi oson va qo'llab-quvvatlanadigan kod yozish bo'yicha amaliy qo'llanma.",
-  },
-];
-
 const statusColorByStatus = {
   'O‘qiyapman': 'bg-sky-50 text-sky-600',
   Tugatdim: 'bg-emerald-50 text-emerald-600',
-  "Rejalashtirmoqdaman": 'bg-violet-50 text-violet-600',
+};
+
+const normalizeStatus = (statusRaw) => {
+  const s = (statusRaw || '').toString().trim().toLowerCase();
+  if (s.includes("o'qiyapman") || s.includes('o‘qiyapman') || s.includes('oqiyapman')) return 'O‘qiyapman';
+  if (s.includes('tugat')) return 'Tugatdim';
+  if (!statusRaw) return 'O‘qiyapman';
+  return statusRaw;
+};
+
+const toApiStatus = (uiStatus) => {
+  if (uiStatus === 'O‘qiyapman') return "O'qiyapman";
+  // Backendda status qiymati "Tugatim" (shunaqa yozilgan)
+  if (uiStatus === 'Tugatdim') return 'Tugatim';
+  return uiStatus || "O'qiyapman";
+};
+
+const buildBookFormData = ({ title, author, description, start_date, end_date, status, student, book_photo_file }) => {
+  const fd = new FormData();
+  fd.append('title', title ?? '');
+  fd.append('author', author ?? '');
+  fd.append('description', description ?? '');
+  fd.append('start_date', start_date ?? '');
+  if (end_date) fd.append('end_date', end_date);
+  fd.append('status', status ?? '');
+  fd.append('student', String(student ?? ''));
+  if (book_photo_file instanceof File) {
+    fd.append('book_photo', book_photo_file);
+  }
+  return fd;
+};
+
+const normalizeBook = (apiBook) => {
+  const status = normalizeStatus(apiBook?.status);
+  return {
+    id: apiBook?.id,
+    title: apiBook?.title || '—',
+    author: apiBook?.author || '—',
+    status,
+    statusColor: statusColorByStatus[status] || 'bg-gray-50 text-gray-600',
+    start: apiBook?.start_date || '—',
+    end: apiBook?.end_date || null,
+    cover: apiBook?.book_photo || '',
+    summary: apiBook?.description || '',
+    student: apiBook?.student ?? null,
+  };
 };
 
 const StudentMyBooks = () => {
-  const [books, setBooks] = useState(initialBooks);
+  const { student } = useStudentData();
+  const studentId = student?.id ?? null;
+
+  const [books, setBooks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
+  const [activeFilter, setActiveFilter] = useState('all'); // all | reading | finished
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingIndex, setEditingIndex] = useState(null);
+  const [editingBook, setEditingBook] = useState(null);
+  const [mode, setMode] = useState('edit'); // edit | create
+  const [formError, setFormError] = useState('');
   const [formValues, setFormValues] = useState({
     title: '',
     author: '',
-    start: '',
-    end: '',
+    start_date: '',
+    end_date: '',
     status: 'O‘qiyapman',
-    cover: '',
-    summary: '',
+    description: '',
   });
+  const [photoFile, setPhotoFile] = useState(null);
 
-  const total = books.length;
-  const finished = books.filter((b) => b.status === 'Tugatdim').length;
-  const reading = books.filter((b) => b.status === 'O‘qiyapman').length;
+  useEffect(() => {
+    let cancelled = false;
 
-  const openAddModal = () => {
-    setEditingIndex(null);
+    const run = async () => {
+      setLoading(true);
+      setError('');
+      try {
+        const data = await getBooksRequest(getAccessToken, getRefreshToken, setAccessToken);
+        const apiList = Array.isArray(data) ? data : [];
+        const scoped = studentId ? apiList.filter((b) => b?.student === studentId) : apiList;
+        const next = scoped.map(normalizeBook);
+        if (!cancelled) setBooks(next);
+      } catch (err) {
+        if (!cancelled) setError(err?.message || "Kitoblarni yuklab bo'lmadi.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [studentId]);
+
+  const openCreateModal = () => {
+    setMode('create');
+    setEditingBook(null);
+    setFormError('');
+    setPhotoFile(null);
     setFormValues({
       title: '',
       author: '',
-      start: '',
-      end: '',
+      start_date: '',
+      end_date: '',
       status: 'O‘qiyapman',
-      cover: '',
-      summary: '',
+      description: '',
     });
     setIsModalOpen(true);
   };
 
-  const openEditModal = (book, index) => {
-    setEditingIndex(index);
+  const openEditModal = (book) => {
+    setMode('edit');
+    setEditingBook(book);
+    setFormError('');
+    setPhotoFile(null);
     setFormValues({
-      title: book.title,
-      author: book.author,
-      start: book.start,
-      end: book.end || '',
-      status: book.status,
-      cover: book.cover || '',
-      summary: book.summary || '',
+      title: book?.title || '',
+      author: book?.author || '',
+      start_date: book?.start && book.start !== '—' ? book.start : '',
+      end_date: book?.end || '',
+      status: book?.status || 'O‘qiyapman',
+      description: book?.summary || '',
     });
     setIsModalOpen(true);
   };
 
   const closeModal = () => {
+    if (saving) return;
     setIsModalOpen(false);
   };
 
@@ -137,28 +185,86 @@ const StudentMyBooks = () => {
     setFormValues((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSaveBook = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-
-    const statusColor = statusColorByStatus[formValues.status] || 'bg-sky-50 text-sky-600';
-    const payload = {
-      ...formValues,
-      end: formValues.end || null,
-      statusColor,
-    };
-
-    if (editingIndex === null) {
-      setBooks((prev) => [...prev, payload]);
-    } else {
-      setBooks((prev) => prev.map((b, idx) => (idx === editingIndex ? payload : b)));
+    if (mode === 'edit' && !editingBook?.id) return;
+    if (!studentId) {
+      setFormError('Student topilmadi. Qayta login qiling.');
+      return;
     }
 
-    setIsModalOpen(false);
+    setSaving(true);
+    setFormError('');
+    try {
+      const fd = buildBookFormData({
+        title: formValues.title?.trim(),
+        author: formValues.author?.trim(),
+        description: formValues.description?.trim(),
+        start_date: formValues.start_date,
+        end_date: formValues.end_date || '',
+        status: toApiStatus(formValues.status),
+        student: studentId,
+        book_photo_file: photoFile,
+      });
+
+      if (mode === 'edit') {
+        const updated = await updateBookRequest(
+          editingBook.id,
+          fd,
+          getAccessToken,
+          getRefreshToken,
+          setAccessToken
+        );
+        const normalized = normalizeBook(updated);
+        setBooks((prev) => prev.map((b) => (b.id === editingBook.id ? normalized : b)));
+      } else {
+        const created = await createBookRequest(
+          fd,
+          getAccessToken,
+          getRefreshToken,
+          setAccessToken
+        );
+        const normalized = normalizeBook(created);
+        setBooks((prev) => [normalized, ...prev]);
+      }
+
+      setIsModalOpen(false);
+    } catch (err) {
+      setFormError(err?.message || "Saqlab bo'lmadi.");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleDelete = (index) => {
-    setBooks((prev) => prev.filter((_, idx) => idx !== index));
+  const handleDelete = async (book) => {
+    if (!book?.id) return;
+    const ok = window.confirm(`"${book.title}" kitobini o‘chirmoqchimisiz?`);
+    if (!ok) return;
+
+    setSaving(true);
+    setError('');
+    try {
+      await deleteBookRequest(book.id, getAccessToken, getRefreshToken, setAccessToken);
+      setBooks((prev) => prev.filter((b) => b.id !== book.id));
+    } catch (err) {
+      setError(err?.message || "O‘chirishda xatolik bo‘ldi.");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const { total, finished, reading } = useMemo(() => {
+    const totalCount = books.length;
+    const finishedCount = books.filter((b) => b.status === 'Tugatdim').length;
+    const readingCount = books.filter((b) => b.status === 'O‘qiyapman').length;
+    return { total: totalCount, finished: finishedCount, reading: readingCount };
+  }, [books]);
+
+  const filteredBooks = useMemo(() => {
+    if (activeFilter === 'reading') return books.filter((b) => b.status === 'O‘qiyapman');
+    if (activeFilter === 'finished') return books.filter((b) => b.status === 'Tugatdim');
+    return books;
+  }, [activeFilter, books]);
 
   return (
     <div className="space-y-5 md:space-y-7">
@@ -191,22 +297,39 @@ const StudentMyBooks = () => {
       {/* Filter row */}
       <section className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2 text-xs md:text-sm">
-          {[
-            `Hammasi (${total})`,
-            `O‘qiyapman (${reading})`,
-            `Tugatdim (${finished})`,
-          ].map((label, idx) => (
-            <button
-              key={label}
-              className={`px-3 py-1.5 rounded-full border text-xs md:text-sm ${
-                idx === 0
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-              } transition`}
-            >
-              {label}
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => setActiveFilter('all')}
+            className={`px-3 py-1.5 rounded-full border text-xs md:text-sm transition ${
+              activeFilter === 'all'
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            Hammasi ({total})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveFilter('reading')}
+            className={`px-3 py-1.5 rounded-full border text-xs md:text-sm transition ${
+              activeFilter === 'reading'
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            O‘qiyapman ({reading})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveFilter('finished')}
+            className={`px-3 py-1.5 rounded-full border text-xs md:text-sm transition ${
+              activeFilter === 'finished'
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+            }`}
+          >
+            Tugatdim ({finished})
+          </button>
         </div>
         <div className="flex items-center gap-2 text-gray-500 text-xs md:text-sm">
           <button
@@ -234,31 +357,67 @@ const StudentMyBooks = () => {
         </div>
       </section>
 
+      {loading ? (
+        <div className="flex items-center justify-center min-h-[200px]">
+          <p className="text-gray-500">Yuklanmoqda...</p>
+        </div>
+      ) : error ? (
+        <div className="flex items-center justify-center min-h-[200px]">
+          <p className="text-red-500">{error}</p>
+        </div>
+      ) : filteredBooks.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 text-center">
+          <p className="font-semibold text-gray-900">Kitoblar topilmadi</p>
+          <p className="text-sm text-gray-500 mt-1">
+            Filtrni o‘zgartiring yoki keyinroq qayta urinib ko‘ring.
+          </p>
+        </div>
+      ) : null}
+
       {/* Books */}
-      {viewMode === 'grid' ? (
+      {!loading && !error && filteredBooks.length > 0 && viewMode === 'grid' ? (
         <section className="grid gap-4 lg:grid-cols-2">
-          {books.map((book, index) => (
+          {filteredBooks.map((book) => (
             <article
-              key={book.title + book.start}
+              key={book.id ?? `${book.title}-${book.start}`}
               className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-5 flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition"
             >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="space-y-1">
-                  <h2 className="font-semibold text-gray-900 text-sm md:text-base lg:text-lg">
-                    {book.title}
-                  </h2>
-                  <p className="text-xs md:text-sm text-gray-500">Muallif: {book.author}</p>
+              <div className="flex items-start gap-4">
+                <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-gray-100 overflow-hidden flex-shrink-0 border border-gray-100">
+                  {book.cover ? (
+                    <img
+                      src={book.cover}
+                      alt={book.title}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">
+                      Rasm yo‘q
+                    </div>
+                  )}
                 </div>
-                <span
-                  className={`text-[11px] md:text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${book.statusColor}`}
-                >
-                  {book.status}
-                </span>
-              </div>
 
-              <div className="flex flex-wrap items-center gap-3 text-[11px] md:text-xs text-gray-500">
-                <span>Boshlangan: {book.start}</span>
-                {book.end && <span>Tugallangan: {book.end}</span>}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="space-y-1 min-w-0">
+                      <h2 className="font-semibold text-gray-900 text-sm md:text-base lg:text-lg truncate">
+                        {book.title}
+                      </h2>
+                      <p className="text-xs md:text-sm text-gray-500 truncate">Muallif: {book.author}</p>
+                    </div>
+                    <span
+                      className={`text-[11px] md:text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap ${book.statusColor}`}
+                    >
+                      {book.status}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3 text-[11px] md:text-xs text-gray-500 mt-2">
+                    <span>Boshlangan: {book.start}</span>
+                    {book.end && <span>Tugallangan: {book.end}</span>}
+                  </div>
+                </div>
               </div>
 
               <div className="text-xs md:text-sm text-gray-600 bg-gray-50 rounded-xl p-3">
@@ -273,16 +432,18 @@ const StudentMyBooks = () => {
                 <div className="flex flex-wrap gap-2 text-[11px] md:text-xs">
                   <button
                     type="button"
-                    onClick={() => openEditModal(book, index)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-sky-50 text-sky-600 font-medium hover:bg-sky-100 transition"
+                    disabled={saving}
+                    onClick={() => openEditModal(book)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-sky-50 text-sky-700 font-medium hover:bg-sky-100 transition disabled:opacity-60"
                   >
                     <HiOutlinePencilSquare className="text-sm" />
                     <span>Tahrirlash</span>
                   </button>
                   <button
                     type="button"
-                    onClick={() => handleDelete(index)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-red-50 text-red-600 font-medium hover:bg-red-100 transition"
+                    disabled={saving}
+                    onClick={() => handleDelete(book)}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-red-50 text-red-700 font-medium hover:bg-red-100 transition disabled:opacity-60"
                   >
                     <HiOutlineTrash className="text-sm" />
                     <span>O‘chirish</span>
@@ -293,10 +454,11 @@ const StudentMyBooks = () => {
           ))}
         </section>
       ) : (
+        !loading && !error && filteredBooks.length > 0 && (
         <section className="space-y-4">
-          {books.map((book, index) => (
+          {filteredBooks.map((book) => (
             <article
-              key={book.title + book.start}
+              key={book.id ?? `${book.title}-${book.start}`}
               className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 md:p-5 flex flex-col gap-3 hover:-translate-y-0.5 hover:shadow-md transition md:flex-row"
             >
               <div className="w-full md:w-40 lg:w-44 h-40 md:h-32 rounded-2xl bg-gray-100 overflow-hidden flex-shrink-0">
@@ -334,20 +496,23 @@ const StudentMyBooks = () => {
                   {book.summary ||
                     "Bu yerga kitob bo‘yicha qisqa fikrlaringiz yoziladi. Toza, tushunarli va samarali tarzda qayd eting."}
                 </p>
+
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                   <div className="flex flex-wrap gap-2 text-[11px] md:text-xs">
                     <button
                       type="button"
-                      onClick={() => openEditModal(book, index)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-sky-50 text-sky-600 font-medium hover:bg-sky-100 transition"
+                      disabled={saving}
+                      onClick={() => openEditModal(book)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-sky-50 text-sky-700 font-medium hover:bg-sky-100 transition disabled:opacity-60"
                     >
                       <HiOutlinePencilSquare className="text-sm" />
                       <span>Tahrirlash</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleDelete(index)}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-red-50 text-red-600 font-medium hover:bg-red-100 transition"
+                      disabled={saving}
+                      onClick={() => handleDelete(book)}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full bg-red-50 text-red-700 font-medium hover:bg-red-100 transition disabled:opacity-60"
                     >
                       <HiOutlineTrash className="text-sm" />
                       <span>O‘chirish</span>
@@ -358,26 +523,21 @@ const StudentMyBooks = () => {
             </article>
           ))}
         </section>
+        )
       )}
-
-      {/* Add button */}
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={openAddModal}
-          className="inline-flex items-center gap-2 px-4 md:px-5 py-2.5 md:py-3 rounded-full bg-blue-600 text-white text-sm md:text-base font-semibold shadow-sm hover:bg-blue-700 hover:shadow-md transition"
-        >
-          <HiOutlinePlusCircle className="text-lg" />
-          <span>Yangi kitob qo‘shish</span>
-        </button>
-      </div>
 
       <Modal
         open={isModalOpen}
         onClose={closeModal}
-        title={editingIndex === null ? 'Yangi kitob qo‘shish' : 'Kitobni tahrirlash'}
+        title={mode === 'create' ? "Yangi kitob qo'shish" : 'Kitobni tahrirlash'}
       >
-        <form className="space-y-4" onSubmit={handleSaveBook}>
+        <form className="space-y-4" onSubmit={handleSave}>
+          {formError && (
+            <p className="text-xs text-red-500 bg-red-50 border border-red-100 rounded-xl px-3 py-2">
+              {formError}
+            </p>
+          )}
+
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs md:text-sm font-medium text-gray-700">
@@ -416,8 +576,8 @@ const StudentMyBooks = () => {
               </label>
               <input
                 type="date"
-                name="start"
-                value={formValues.start}
+                name="start_date"
+                value={formValues.start_date}
                 onChange={handleFormChange}
                 required
                 className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -429,8 +589,8 @@ const StudentMyBooks = () => {
               </label>
               <input
                 type="date"
-                name="end"
-                value={formValues.end}
+                name="end_date"
+                value={formValues.end_date}
                 onChange={handleFormChange}
                 className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
@@ -448,35 +608,34 @@ const StudentMyBooks = () => {
               >
                 <option value="O‘qiyapman">O‘qiyapman</option>
                 <option value="Tugatdim">Tugatdim</option>
-                <option value="Rejalashtirmoqdaman">Rejalashtirmoqdaman</option>
               </select>
             </div>
             <div className="space-y-1.5">
               <label className="text-xs md:text-sm font-medium text-gray-700">
-                Muqova URL
+                Muqova (file)
               </label>
               <input
-                type="url"
-                name="cover"
-                value={formValues.cover}
-                onChange={handleFormChange}
-                placeholder="https://example.com/image.jpg"
+                type="file"
+                accept="image/*"
+                onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
                 className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
-              <p className="text-[11px] text-gray-400">
-                Bo‘sh qoldirilsa, standart rasm qo‘llaniladi.
-              </p>
+              {mode === 'edit' && editingBook?.cover && !photoFile && (
+                <p className="text-[11px] text-gray-500">
+                  Hozirgi rasm saqlanadi (almashtirish uchun file tanlang).
+                </p>
+              )}
             </div>
           </div>
 
           <div className="space-y-1.5">
             <label className="text-xs md:text-sm font-medium text-gray-700">Xulosa *</label>
             <textarea
-              name="summary"
-              value={formValues.summary}
+              name="description"
+              value={formValues.description}
               onChange={handleFormChange}
               required
-              rows={3}
+              rows={4}
               placeholder="Kitob haqida qisqacha xulosa yozing..."
               className="w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
             />
@@ -486,19 +645,34 @@ const StudentMyBooks = () => {
             <button
               type="button"
               onClick={closeModal}
-              className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              disabled={saving}
+              className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
             >
               Bekor qilish
             </button>
             <button
               type="submit"
-              className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm"
+              disabled={saving}
+              className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 shadow-sm disabled:opacity-70"
             >
-              Saqlash
+              {saving ? 'Saqlanmoqda...' : 'Saqlash'}
             </button>
           </div>
         </form>
       </Modal>
+
+      {/* Add button */}
+      <div className="flex justify-end">
+        <button
+          type="button"
+          onClick={openCreateModal}
+          disabled={saving || loading}
+          className="inline-flex items-center gap-2 px-4 md:px-5 py-2.5 md:py-3 rounded-full bg-blue-600 text-white text-sm md:text-base font-semibold shadow-sm hover:bg-blue-700 hover:shadow-md transition disabled:opacity-70"
+        >
+          <span>＋</span>
+          <span>Yangi kitob qo‘shish</span>
+        </button>
+      </div>
     </div>
   );
 };

@@ -46,7 +46,81 @@ const auctionItems = [
   },
 ];
 
+import { useEffect, useMemo, useState } from 'react';
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
+const getTimeParts = (targetMs) => {
+  const now = Date.now();
+  const diff = Math.max(0, targetMs - now);
+  const totalSeconds = Math.floor(diff / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return { diff, days, hours, minutes, seconds };
+};
+
+const FlipUnit = ({ label, value }) => {
+  const [prev, setPrev] = useState(value);
+  const [flip, setFlip] = useState(false);
+
+  useEffect(() => {
+    if (value === prev) return;
+    setFlip(true);
+    const t = setTimeout(() => {
+      setFlip(false);
+      setPrev(value);
+    }, 220);
+    return () => clearTimeout(t);
+  }, [value, prev]);
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-white/10 border border-white/15 px-3 py-3 md:py-4 text-center">
+      <div className="text-[10px] md:text-xs uppercase tracking-wider opacity-80">{label}</div>
+      <div
+        className={`mt-1 text-2xl md:text-3xl font-extrabold tabular-nums transition-transform duration-200 ${
+          flip ? '-translate-y-1 scale-[1.03]' : 'translate-y-0 scale-100'
+        }`}
+      >
+        {value}
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-white/15" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(255,255,255,0.18),transparent_55%),radial-gradient(circle_at_80%_90%,rgba(255,255,255,0.12),transparent_55%)]" />
+    </div>
+  );
+};
+
+const AuctionCountdown = ({ targetISO }) => {
+  const targetMs = useMemo(() => new Date(targetISO).getTime(), [targetISO]);
+  const [parts, setParts] = useState(() => getTimeParts(targetMs));
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setParts(getTimeParts(targetMs));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [targetMs]);
+
+  const ended = parts.diff === 0;
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4">
+      <FlipUnit label="Kun" value={String(parts.days)} />
+      <FlipUnit label="Soat" value={pad2(parts.hours)} />
+      <FlipUnit label="Daqiqa" value={pad2(parts.minutes)} />
+      <FlipUnit label="Soniya" value={pad2(parts.seconds)} />
+      {ended && (
+        <div className="sm:col-span-4 mt-1 text-center text-[11px] md:text-xs text-orange-50">
+          Auksion boshlandi!
+        </div>
+      )}
+    </div>
+  );
+};
+
 const StudentAuction = () => {
+  const targetISO = '2026-02-28T15:00:00';
   return (
     <div className="space-y-5 md:space-y-7">
       {/* Header */}
@@ -60,7 +134,9 @@ const StudentAuction = () => {
       </header>
 
       {/* Big banner */}
-      <section className="bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-2xl p-5 md:p-7 shadow-sm">
+      <section className="relative overflow-hidden bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-2xl p-5 md:p-7 shadow-sm">
+        <div className="pointer-events-none absolute -top-24 -right-24 w-72 h-72 rounded-full bg-white/15 blur-2xl" />
+        <div className="pointer-events-none absolute -bottom-28 -left-24 w-80 h-80 rounded-full bg-black/10 blur-2xl" />
         <div className="flex flex-col gap-4 md:gap-5">
           <div>
             <p className="text-xs md:text-sm opacity-90 mb-1">
@@ -75,22 +151,7 @@ const StudentAuction = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 md:gap-4 text-center text-xs md:text-sm">
-            {[
-              { label: 'Kun', value: '15' },
-              { label: 'Soat', value: '8' },
-              { label: 'Daqiqa', value: '45' },
-              { label: 'Soniya', value: '23' },
-            ].map((item) => (
-              <div
-                key={item.label}
-                className="bg-white/10 rounded-xl py-2 md:py-3 px-2 flex flex-col gap-1"
-              >
-                <span className="text-lg md:text-2xl font-semibold">{item.value}</span>
-                <span className="text-[11px] md:text-xs opacity-80">{item.label}</span>
-              </div>
-            ))}
-          </div>
+          <AuctionCountdown targetISO={targetISO} />
 
           <p className="text-[11px] md:text-xs text-orange-50">
             Offline auksion CODIAL ta‘lim markazida o‘tkaziladi. Belgilangan vaqtda markazga
